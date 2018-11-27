@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/credentials/stscreds"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/ghodss/yaml"
@@ -349,6 +350,14 @@ func initAWS(useLocalhost bool) (*imagebuilder.AWSConfig, *imagebuilder.AWSCloud
 	}
 
 	ec2Client := ec2.New(session.New(), &aws.Config{Region: &awsConfig.Region})
+	// aws-sdk-go 1.2.2 SharedCredentialsProvider only retrieves credentials from the
+	// ~/.aws/credentials file, the AssumeRole must be retrieved explicitly.
+	roleARN := os.Getenv("AWS_ROLE_ARN")
+	if roleARN != "" {
+		sess := session.New()
+        creds := stscreds.NewCredentials(sess, roleARN)
+        ec2Client = ec2.New(sess, &aws.Config{Region: &awsConfig.Region, Credentials: creds})
+	}
 	awsCloud := imagebuilder.NewAWSCloud(ec2Client, awsConfig, useLocalhost)
 
 	return awsConfig, awsCloud, nil
